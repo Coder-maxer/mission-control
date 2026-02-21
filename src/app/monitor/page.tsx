@@ -127,7 +127,7 @@ export default function MonitorPage() {
             onRefresh={fetchData}
           />
           <CompletedJobsSection />
-          <CronJobsSection />
+          <CronJobsSection cronJobs={data?.cronJobs ?? []} />
         </main>
       </div>
       {selectedSession && (

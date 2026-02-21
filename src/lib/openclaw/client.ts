@@ -464,6 +464,18 @@ export class OpenClawClient extends EventEmitter {
     return [];
   }
 
+  // Cron job methods
+  async listCronJobs(includeDisabled = true): Promise<unknown[]> {
+    const result = await this.call<{ jobs?: unknown[] }>('cron.list', { includeDisabled });
+    if (result && typeof result === 'object' && Array.isArray((result as Record<string, unknown>).jobs)) {
+      return (result as Record<string, unknown>).jobs as unknown[];
+    }
+    if (Array.isArray(result)) {
+      return result;
+    }
+    return [];
+  }
+
   // Node methods (device capabilities)
   async listNodes(): Promise<unknown[]> {
     return this.call<unknown[]>('node.list');

@@ -34,10 +34,45 @@ export interface MonitorAgent {
   [key: string]: unknown;
 }
 
+export interface CronJob {
+  id: string;
+  agentId: string;
+  name: string;
+  description?: string;
+  enabled: boolean;
+  createdAtMs?: number;
+  updatedAtMs?: number;
+  schedule: {
+    kind: 'cron' | 'at' | 'every';
+    expr?: string;
+    tz: string;
+  };
+  sessionTarget?: string;
+  payload?: {
+    kind: string;
+    message?: string;
+    thinking?: string;
+    timeoutSeconds?: number;
+  };
+  delivery?: {
+    mode: 'announce' | 'none';
+    channel?: string;
+    to?: string;
+  };
+  state: {
+    nextRunAtMs: number;
+    lastRunAtMs?: number;
+    lastStatus?: 'ok' | 'error';
+    lastDurationMs?: number;
+    lastError?: string;
+  };
+}
+
 export interface MonitorData {
   connected: boolean;
   sessions: MonitorSession[];
   agents: MonitorAgent[];
+  cronJobs: CronJob[];
   timestamp: number;
   error?: string;
 }
@@ -305,6 +340,56 @@ export function getDailyTokens(sessions: MonitorSession[]): {
     total: Math.max(0, current.total - snapshot.total),
     resetDate: today,
   };
+}
+
+// --- Cron Schedule Utilities ---
+
+export function formatCronSchedule(schedule: CronJob['schedule']): string {
+  if (schedule.kind === 'every') return schedule.expr ? `Every ${schedule.expr}` : 'Recurring';
+  if (schedule.kind === 'at') return 'One-time';
+  if (!schedule.expr) return 'Unknown';
+
+  const parts = schedule.expr.trim().split(/\s+/);
+  if (parts.length < 5) return schedule.expr;
+
+  const [min, hour, , , dow] = parts;
+  const hourNum = parseInt(hour, 10);
+  const minNum = parseInt(min, 10);
+  if (isNaN(hourNum) || isNaN(minNum)) return schedule.expr;
+
+  const ampm = hourNum >= 12 ? 'PM' : 'AM';
+  const displayHour = hourNum === 0 ? 12 : hourNum > 12 ? hourNum - 12 : hourNum;
+  const displayMin = minNum.toString().padStart(2, '0');
+  const timeStr = `${displayHour}:${displayMin} ${ampm}`;
+
+  if (dow === '*') return `Daily at ${timeStr}`;
+
+  const dayNames: Record<string, string> = {
+    '0': 'Sundays', '1': 'Mondays', '2': 'Tuesdays',
+    '3': 'Wednesdays', '4': 'Thursdays', '5': 'Fridays',
+    '6': 'Saturdays', '7': 'Sundays',
+  };
+  return dayNames[dow] ? `${dayNames[dow]} at ${timeStr}` : schedule.expr;
+}
+
+export function formatCountdown(targetMs: number): string {
+  const diffMs = targetMs - Date.now();
+  if (diffMs < 0) return 'overdue';
+  if (diffMs < 60_000) return 'now';
+
+  const minutes = Math.floor(diffMs / 60_000);
+  const hours = Math.floor(minutes / 60);
+  const days = Math.floor(hours / 24);
+
+  if (days > 0) {
+    const remainHours = hours % 24;
+    return remainHours > 0 ? `in ${days}d ${remainHours}h` : `in ${days}d`;
+  }
+  if (hours > 0) {
+    const remainMin = minutes % 60;
+    return remainMin > 0 ? `in ${hours}h ${remainMin}m` : `in ${hours}h`;
+  }
+  return `in ${minutes}m`;
 }
 
 export function formatTokenCount(n: number): string {

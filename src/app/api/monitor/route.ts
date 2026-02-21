@@ -15,21 +15,24 @@ export async function GET() {
         connected: false,
         sessions: [],
         agents: [],
+        cronJobs: [],
         error: 'Failed to connect to OpenClaw Gateway',
       });
     }
   }
 
   try {
-    const [sessions, agents] = await Promise.all([
+    const [sessions, agents, cronJobs] = await Promise.all([
       client.listSessions().catch(() => []),
       client.listAgents().catch(() => []),
+      client.listCronJobs().catch(() => []),
     ]);
 
     return NextResponse.json({
       connected: true,
       sessions,
       agents,
+      cronJobs,
       timestamp: Date.now(),
     });
   } catch (error) {
@@ -38,6 +41,7 @@ export async function GET() {
       connected: client.isConnected(),
       sessions: [],
       agents: [],
+      cronJobs: [],
       error: 'Failed to fetch monitoring data',
     });
   }
