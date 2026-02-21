@@ -14,6 +14,8 @@ services:
       OPENCLAW_GATEWAY_TOKEN: ${OPENCLAW_GATEWAY_TOKEN}
       MC_API_TOKEN: ${MC_API_TOKEN}
       WEBHOOK_SECRET: ${WEBHOOK_SECRET}
+      MONITOR_USER: ${MONITOR_USER}
+      MONITOR_PASSWORD: ${MONITOR_PASSWORD}
     volumes:
       - mission-control-data:/app/data
       - mission-control-workspace:/app/workspace
