@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { MonitorData } from '@/components/monitor/types';
+import { MonitorData, getDailyTokens } from '@/components/monitor/types';
 import StatusBar from '@/components/monitor/StatusBar';
 import AgentSidebar from '@/components/monitor/AgentSidebar';
 import AgentHealthSection from '@/components/monitor/AgentHealthSection';
@@ -44,6 +44,7 @@ export default function MonitorPage() {
   }, [fetchData]);
 
   const totalTokens = data?.sessions?.reduce((sum, s) => sum + (s.totalTokens || 0), 0) ?? 0;
+  const daily = data?.sessions ? getDailyTokens(data.sessions) : { total: 0 };
 
   const selectedSession = data?.sessions?.find((s) => s.sessionId === selectedSessionId);
 
@@ -100,6 +101,7 @@ export default function MonitorPage() {
         connected={data?.connected ?? false}
         sessionCount={data?.sessions?.length ?? 0}
         totalTokens={totalTokens}
+        dailyTokens={daily.total}
         lastUpdated={data?.timestamp ?? null}
         onRefresh={fetchData}
       />

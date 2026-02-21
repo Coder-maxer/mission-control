@@ -7,11 +7,12 @@ interface StatusBarProps {
   connected: boolean;
   sessionCount: number;
   totalTokens: number;
+  dailyTokens: number;
   lastUpdated: number | null;
   onRefresh: () => void;
 }
 
-export default function StatusBar({ connected, sessionCount, totalTokens, lastUpdated, onRefresh }: StatusBarProps) {
+export default function StatusBar({ connected, sessionCount, totalTokens, dailyTokens, lastUpdated, onRefresh }: StatusBarProps) {
 
   const timeAgo = lastUpdated
     ? `${Math.round((Date.now() - lastUpdated) / 1000)}s ago`
@@ -41,7 +42,7 @@ export default function StatusBar({ connected, sessionCount, totalTokens, lastUp
             <span className="text-mc-text">{sessionCount}</span> sessions
           </div>
           <div>
-            <span className="text-mc-text">{formatTokenCount(totalTokens)}</span> tokens
+            <span className="text-mc-text">{formatTokenCount(dailyTokens)}</span> today
           </div>
           <div className="flex items-center gap-2">
             <span>

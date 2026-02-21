@@ -230,6 +230,83 @@ export function buildAgentTree(
   return trees;
 }
 
+// --- Daily Token Tracking (MST midnight reset) ---
+
+const MST_TIMEZONE = 'America/Edmonton';
+
+/** Get today's date string in MST (YYYY-MM-DD) */
+export function getMSTDateString(): string {
+  return new Date().toLocaleDateString('en-CA', { timeZone: MST_TIMEZONE });
+}
+
+interface DailySnapshot {
+  date: string;
+  input: number;
+  output: number;
+  total: number;
+}
+
+const STORAGE_KEY = 'monitor-daily-token-snapshot';
+
+function loadSnapshot(): DailySnapshot | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+function saveSnapshot(snapshot: DailySnapshot): void {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(snapshot));
+  } catch {
+    // localStorage full or unavailable
+  }
+}
+
+/**
+ * Calculate today's token usage by comparing current cumulative
+ * totals against the midnight MST snapshot. If the date has rolled
+ * over, stores the current values as the new baseline.
+ */
+export function getDailyTokens(sessions: MonitorSession[]): {
+  input: number;
+  output: number;
+  total: number;
+  resetDate: string;
+} {
+  const today = getMSTDateString();
+  const current = aggregateTokens(sessions);
+  const snapshot = loadSnapshot();
+
+  // First visit ever, or new day — snapshot current as baseline
+  if (!snapshot || snapshot.date !== today) {
+    saveSnapshot({
+      date: today,
+      input: current.input,
+      output: current.output,
+      total: current.total,
+    });
+    // If it's a brand new day, daily starts at 0
+    // If first visit ever, treat current as today's full usage
+    if (snapshot && snapshot.date !== today) {
+      return { input: 0, output: 0, total: 0, resetDate: today };
+    }
+    return { ...current, resetDate: today };
+  }
+
+  // Same day — calculate delta, clamp to 0 (handles session resets)
+  return {
+    input: Math.max(0, current.input - snapshot.input),
+    output: Math.max(0, current.output - snapshot.output),
+    total: Math.max(0, current.total - snapshot.total),
+    resetDate: today,
+  };
+}
+
 export function formatTokenCount(n: number): string {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
   if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
