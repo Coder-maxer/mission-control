@@ -53,10 +53,44 @@ if (DEMO_MODE) {
   console.log('[DEMO] Running in demo mode — all write operations are blocked');
 }
 
+// Monitor Basic Auth credentials
+const MONITOR_USER = process.env.MONITOR_USER;
+const MONITOR_PASSWORD = process.env.MONITOR_PASSWORD;
+
+function checkMonitorAuth(request: NextRequest): NextResponse | null {
+  if (!MONITOR_USER || !MONITOR_PASSWORD) return null;
+
+  const authHeader = request.headers.get('authorization');
+  if (!authHeader?.startsWith('Basic ')) {
+    return new NextResponse('Unauthorized', {
+      status: 401,
+      headers: { 'WWW-Authenticate': 'Basic realm="Mission Control Monitor"' },
+    });
+  }
+
+  const decoded = atob(authHeader.slice(6));
+  const [user, pass] = decoded.split(':');
+  if (user !== MONITOR_USER || pass !== MONITOR_PASSWORD) {
+    return new NextResponse('Unauthorized', {
+      status: 401,
+      headers: { 'WWW-Authenticate': 'Basic realm="Mission Control Monitor"' },
+    });
+  }
+
+  return null; // Auth passed
+}
+
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Only protect /api/* routes
+  // Protect /monitor routes with Basic Auth
+  if (pathname.startsWith('/monitor') || pathname.startsWith('/api/monitor')) {
+    const authResponse = checkMonitorAuth(request);
+    if (authResponse) return authResponse;
+    return NextResponse.next();
+  }
+
+  // Only protect /api/* routes below this point
   if (!pathname.startsWith('/api/')) {
     // Add demo mode header for UI detection
     if (DEMO_MODE) {
@@ -121,5 +155,5 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: '/api/:path*',
+  matcher: ['/api/:path*', '/monitor/:path*'],
 };
