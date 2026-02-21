@@ -19,6 +19,7 @@ services:
     volumes:
       - mission-control-data:/app/data
       - mission-control-workspace:/app/workspace
+      - openclaw-data:/openclaw-data:ro
     restart: unless-stopped
     healthcheck:
       test:
@@ -36,6 +37,9 @@ services:
 volumes:
   mission-control-data:
   mission-control-workspace:
+  openclaw-data:
+    external: true
+    name: open-claw-openclaw-kttly8_openclaw-data
 
 networks:
   open-claw-openclaw-kttly8:

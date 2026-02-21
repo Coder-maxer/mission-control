@@ -478,8 +478,6 @@ export interface MonitorAlert {
   message: string;
 }
 
-const CONTEXT_CAP = 128_000;
-
 export function computeAlerts(data: MonitorData): MonitorAlert[] {
   const alerts: MonitorAlert[] = [];
 
@@ -516,9 +514,9 @@ export function computeAlerts(data: MonitorData): MonitorAlert[] {
       });
     }
 
-    // High context usage (>80%)
-    if (session.contextTokens && session.contextTokens / CONTEXT_CAP > 0.8) {
-      const pct = Math.round((session.contextTokens / CONTEXT_CAP) * 100);
+    // High context usage (>80%) — contextTokens is the cap, totalTokens is actual usage
+    if (session.totalTokens && session.contextTokens && session.totalTokens / session.contextTokens > 0.8) {
+      const pct = Math.round((session.totalTokens / session.contextTokens) * 100);
       alerts.push({
         id: `high-context-${session.sessionId}`,
         severity: 'warning',

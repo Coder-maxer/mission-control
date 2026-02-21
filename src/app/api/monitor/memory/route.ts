@@ -4,16 +4,20 @@ import { join, resolve } from 'path';
 
 export const dynamic = 'force-dynamic';
 
-const WORKSPACE_ROOT =
-  '/var/lib/docker/volumes/open-claw-openclaw-kttly8_openclaw-data/_data/workspace';
+// Inside the container, the OpenClaw data volume is mounted at /openclaw-data
+const WORKSPACE_ROOT = '/openclaw-data/workspace';
 
-// Whitelist of allowed file patterns
+// Whitelist of allowed file patterns — all .md files within known directories
 function isAllowedPath(filePath: string): boolean {
   const normalized = filePath.replace(/\\/g, '/');
-  // MEMORY.md or HEARTBEAT.md at root
-  if (normalized === 'MEMORY.md' || normalized === 'HEARTBEAT.md') return true;
-  // memory/*.md (daily logs)
-  if (/^memory\/[\w-]+\.md$/.test(normalized)) return true;
+  // Root workspace .md files (MEMORY.md, HEARTBEAT.md, SOUL.md, AGENTS.md, etc.)
+  if (/^[A-Z_]+\.md$/.test(normalized)) return true;
+  // memory/*.md (daily logs, drive index)
+  if (/^memory\/[\w.-]+\.md$/.test(normalized)) return true;
+  // agents/<name>/*.md (agent personality files)
+  if (/^agents\/[\w-]+\/[\w_]+\.md$/.test(normalized)) return true;
+  // agents/<name>/skills/<name>/SKILL.md
+  if (/^agents\/[\w-]+\/skills\/[\w-]+\/SKILL\.md$/.test(normalized)) return true;
   return false;
 }
 
@@ -27,43 +31,68 @@ export async function GET(request: NextRequest) {
     try {
       const files: { name: string; size: number; modified: number }[] = [];
 
-      // Check root-level files
-      for (const name of ['MEMORY.md', 'HEARTBEAT.md']) {
+      // Root-level .md files
+      const ROOT_FILES = ['MEMORY.md', 'HEARTBEAT.md', 'SOUL.md', 'IDENTITY.md', 'AGENTS.md', 'TOOLS.md', 'USER.md', 'CLAUDE.md'];
+      for (const name of ROOT_FILES) {
         try {
-          const fullPath = join(WORKSPACE_ROOT, name);
-          const s = await stat(fullPath);
+          const s = await stat(join(WORKSPACE_ROOT, name));
           files.push({ name, size: s.size, modified: s.mtimeMs });
         } catch {
           // File doesn't exist, skip
         }
       }
 
-      // Check memory/ directory for daily logs
+      // memory/ directory (daily logs, drive index)
       try {
         const memoryDir = join(WORKSPACE_ROOT, 'memory');
         const entries = await readdir(memoryDir);
         for (const entry of entries) {
           if (entry.endsWith('.md')) {
-            const relPath = `memory/${entry}`;
             try {
-              const fullPath = join(memoryDir, entry);
-              const s = await stat(fullPath);
-              files.push({ name: relPath, size: s.size, modified: s.mtimeMs });
-            } catch {
-              // Skip unreadable files
-            }
+              const s = await stat(join(memoryDir, entry));
+              files.push({ name: `memory/${entry}`, size: s.size, modified: s.mtimeMs });
+            } catch { /* skip */ }
           }
         }
-      } catch {
-        // memory/ directory doesn't exist
-      }
+      } catch { /* directory doesn't exist */ }
 
-      // Sort: root files first, then daily logs newest first
+      // Agent directories
+      try {
+        const agentsDir = join(WORKSPACE_ROOT, 'agents');
+        const agentDirs = await readdir(agentsDir);
+        for (const agentName of agentDirs) {
+          try {
+            const agentPath = join(agentsDir, agentName);
+            const agentStat = await stat(agentPath);
+            if (!agentStat.isDirectory()) continue;
+
+            const agentFiles = await readdir(agentPath);
+            for (const entry of agentFiles) {
+              if (entry.endsWith('.md')) {
+                try {
+                  const s = await stat(join(agentPath, entry));
+                  files.push({
+                    name: `agents/${agentName}/${entry}`,
+                    size: s.size,
+                    modified: s.mtimeMs,
+                  });
+                } catch { /* skip */ }
+              }
+            }
+          } catch { /* skip agent dir */ }
+        }
+      } catch { /* agents/ doesn't exist */ }
+
+      // Sort: root files first, then memory/, then agents/ — newest first within groups
       files.sort((a, b) => {
-        const aIsRoot = !a.name.includes('/');
-        const bIsRoot = !b.name.includes('/');
-        if (aIsRoot && !bIsRoot) return -1;
-        if (!aIsRoot && bIsRoot) return 1;
+        const groupOrder = (name: string) => {
+          if (!name.includes('/')) return 0;
+          if (name.startsWith('memory/')) return 1;
+          return 2;
+        };
+        const ga = groupOrder(a.name);
+        const gb = groupOrder(b.name);
+        if (ga !== gb) return ga - gb;
         return b.modified - a.modified;
       });
 
@@ -87,7 +116,7 @@ export async function GET(request: NextRequest) {
 
   // Prevent directory traversal
   const fullPath = resolve(join(WORKSPACE_ROOT, file));
-  if (!fullPath.startsWith(WORKSPACE_ROOT)) {
+  if (!fullPath.startsWith(resolve(WORKSPACE_ROOT))) {
     return NextResponse.json(
       { error: 'Invalid path' },
       { status: 403 }

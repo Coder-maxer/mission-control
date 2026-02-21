@@ -335,6 +335,13 @@ export class OpenClawClient extends EventEmitter {
               return;
             }
 
+            // Handle gateway push events in type:'event' format (non-challenge)
+            if (data.type === 'event' && data.event && data.event !== 'connect.challenge') {
+              this.emit('notification', data);
+              this.emit(data.event, data.payload);
+              return;
+            }
+
             // Handle RPC responses and other messages
             this.handleMessage(data as OpenClawMessage);
           } catch (err) {
