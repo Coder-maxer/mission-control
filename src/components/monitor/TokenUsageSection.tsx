@@ -1,6 +1,6 @@
 'use client';
 
-import { Coins, RefreshCw, ArrowDownRight, ArrowUpRight, Clock } from 'lucide-react';
+import { Coins, RefreshCw, ArrowDownRight, ArrowUpRight, DollarSign, Clock } from 'lucide-react';
 import SectionCard from './SectionCard';
 import {
   MonitorSession,
@@ -8,6 +8,9 @@ import {
   parseSessionKey,
   aggregateTokens,
   getDailyTokens,
+  calculateCost,
+  calculateAgentCost,
+  formatCost,
   AGENT_COLORS,
 } from './types';
 
@@ -22,6 +25,7 @@ interface AgentTokenRow {
   input: number;
   output: number;
   total: number;
+  cost: number;
 }
 
 export default function TokenUsageSection({
@@ -30,6 +34,7 @@ export default function TokenUsageSection({
 }: TokenUsageSectionProps) {
   const cumulative = aggregateTokens(sessions);
   const daily = getDailyTokens(sessions);
+  const cost = calculateCost(sessions);
 
   // Group sessions by agent name
   const agentMap = new Map<string, MonitorSession[]>();
@@ -52,6 +57,7 @@ export default function TokenUsageSection({
       input,
       output,
       total,
+      cost: calculateAgentCost(agentSessions),
     });
     colorIndex++;
   }
@@ -112,6 +118,18 @@ export default function TokenUsageSection({
               Output Today
             </div>
           </div>
+
+          <div className="flex-1 rounded-lg border border-mc-accent-yellow/30 bg-mc-accent-yellow/5 p-4 text-center">
+            <div className="flex items-center justify-center gap-1.5">
+              <DollarSign className="w-4 h-4 text-mc-accent-yellow" />
+              <span className="text-2xl font-bold text-mc-text tabular-nums">
+                {formatCost(cost.totalCost)}
+              </span>
+            </div>
+            <div className="text-xs text-mc-text-secondary uppercase mt-1">
+              Cost Today
+            </div>
+          </div>
         </div>
       </div>
 
@@ -137,6 +155,7 @@ export default function TokenUsageSection({
                 <th className="text-right py-2 font-medium">Input</th>
                 <th className="text-right py-2 font-medium">Output</th>
                 <th className="text-right py-2 font-medium">Total</th>
+                <th className="text-right py-2 font-medium">Cost</th>
               </tr>
             </thead>
             <tbody>
@@ -157,6 +176,9 @@ export default function TokenUsageSection({
                   <td className="py-2 text-right text-mc-text font-medium tabular-nums">
                     {formatTokenCount(row.total)}
                   </td>
+                  <td className="py-2 text-right text-mc-accent-yellow tabular-nums">
+                    {row.cost > 0 ? formatCost(row.cost) : '—'}
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -166,7 +188,7 @@ export default function TokenUsageSection({
 
       {/* Footer note */}
       <p className="text-xs text-mc-text-secondary italic px-4 pb-4">
-        Daily usage resets at midnight MST. Per-agent breakdown shows cumulative session totals.
+        Daily usage resets at midnight MST. Cost estimates for OpenRouter models only — GPT-5.2 (ChatGPT Plus) is free.
       </p>
     </SectionCard>
   );

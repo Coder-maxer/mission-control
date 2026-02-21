@@ -415,3 +415,126 @@ export function aggregateTokens(sessions: MonitorSession[]): {
 
   return { input, output, total };
 }
+
+// --- Cost Tracking (Kimi K2.5 via OpenRouter) ---
+
+const KIMI_INPUT_COST = 0.23 / 1_000_000; // $0.23 per 1M input tokens
+const KIMI_OUTPUT_COST = 3.00 / 1_000_000; // $3.00 per 1M output tokens
+
+function isOpenRouterSession(session: MonitorSession): boolean {
+  return (
+    session.modelProvider === 'openrouter' ||
+    (session.model?.includes('kimi') ?? false)
+  );
+}
+
+export function calculateCost(sessions: MonitorSession[]): {
+  totalCost: number;
+  inputCost: number;
+  outputCost: number;
+} {
+  let inputTokens = 0;
+  let outputTokens = 0;
+
+  for (const session of sessions) {
+    if (isOpenRouterSession(session)) {
+      inputTokens += session.inputTokens || 0;
+      outputTokens += session.outputTokens || 0;
+    }
+  }
+
+  const inputCost = inputTokens * KIMI_INPUT_COST;
+  const outputCost = outputTokens * KIMI_OUTPUT_COST;
+  return { totalCost: inputCost + outputCost, inputCost, outputCost };
+}
+
+export function calculateAgentCost(sessions: MonitorSession[]): number {
+  let inputTokens = 0;
+  let outputTokens = 0;
+
+  for (const session of sessions) {
+    if (isOpenRouterSession(session)) {
+      inputTokens += session.inputTokens || 0;
+      outputTokens += session.outputTokens || 0;
+    }
+  }
+
+  return inputTokens * KIMI_INPUT_COST + outputTokens * KIMI_OUTPUT_COST;
+}
+
+export function formatCost(cost: number): string {
+  if (cost === 0) return '$0.00';
+  if (cost < 0.01) return '<$0.01';
+  return `$${cost.toFixed(2)}`;
+}
+
+// --- Smart Alert Detection ---
+
+export type AlertSeverity = 'critical' | 'warning';
+
+export interface MonitorAlert {
+  id: string;
+  severity: AlertSeverity;
+  message: string;
+}
+
+const CONTEXT_CAP = 128_000;
+
+export function computeAlerts(data: MonitorData): MonitorAlert[] {
+  const alerts: MonitorAlert[] = [];
+
+  // Gateway offline
+  if (!data.connected) {
+    alerts.push({
+      id: 'gateway-offline',
+      severity: 'critical',
+      message: 'Gateway is offline',
+    });
+  }
+
+  // Failed cron jobs
+  for (const cron of data.cronJobs) {
+    if (cron.state.lastStatus === 'error') {
+      alerts.push({
+        id: `cron-error-${cron.id}`,
+        severity: 'critical',
+        message: `Cron "${cron.name}" failed: ${cron.state.lastError || 'unknown error'}`,
+      });
+    }
+  }
+
+  for (const session of data.sessions) {
+    const { isSubAgent } = parseSessionKey(session.key);
+    const health = classifyHealth(session.updatedAt);
+
+    // Stalled sub-agent: sub-agent + stale + aborted
+    if (isSubAgent && health === 'stale' && session.abortedLastRun) {
+      alerts.push({
+        id: `stalled-subagent-${session.sessionId}`,
+        severity: 'warning',
+        message: `Sub-agent session "${session.displayName || session.key}" is stalled`,
+      });
+    }
+
+    // High context usage (>80%)
+    if (session.contextTokens && session.contextTokens / CONTEXT_CAP > 0.8) {
+      const pct = Math.round((session.contextTokens / CONTEXT_CAP) * 100);
+      alerts.push({
+        id: `high-context-${session.sessionId}`,
+        severity: 'warning',
+        message: `"${session.displayName || session.key}" context at ${pct}%`,
+      });
+    }
+
+    // Aborted run (non-sub-agent)
+    if (!isSubAgent && session.abortedLastRun) {
+      alerts.push({
+        id: `aborted-${session.sessionId}`,
+        severity: 'warning',
+        message: `"${session.displayName || session.key}" last run was aborted`,
+      });
+    }
+  }
+
+  return alerts;
+}

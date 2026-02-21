@@ -4,17 +4,21 @@ import { useEffect, useState, useCallback } from 'react';
 import { MonitorData, getDailyTokens } from '@/components/monitor/types';
 import StatusBar from '@/components/monitor/StatusBar';
 import AgentSidebar from '@/components/monitor/AgentSidebar';
+import AlertBanner from '@/components/monitor/AlertBanner';
 import AgentHealthSection from '@/components/monitor/AgentHealthSection';
 import TokenUsageSection from '@/components/monitor/TokenUsageSection';
 import SessionsPanel from '@/components/monitor/SessionsPanel';
-import CompletedJobsSection from '@/components/monitor/CompletedJobsSection';
+import LiveFeedSection from '@/components/monitor/LiveFeedSection';
 import CronJobsSection from '@/components/monitor/CronJobsSection';
+import MemoryBrowserSection from '@/components/monitor/MemoryBrowserSection';
 import SessionDetail from '@/components/monitor/SessionDetail';
+import { useMonitorSSE } from '@/hooks/useMonitorSSE';
 
 export default function MonitorPage() {
   const [data, setData] = useState<MonitorData | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
+  const { events, connected: sseConnected, clearEvents } = useMonitorSSE();
 
   const fetchData = useCallback(async () => {
     try {
@@ -111,6 +115,7 @@ export default function MonitorPage() {
           agents={data?.agents ?? []}
         />
         <main className="flex-1 overflow-y-auto p-6 space-y-6">
+          {data && <AlertBanner data={data} />}
           <AgentHealthSection
             sessions={data?.sessions ?? []}
             agents={data?.agents ?? []}
@@ -126,8 +131,13 @@ export default function MonitorPage() {
             onSelectSession={setSelectedSessionId}
             onRefresh={fetchData}
           />
-          <CompletedJobsSection />
+          <LiveFeedSection
+            events={events}
+            connected={sseConnected}
+            onClear={clearEvents}
+          />
           <CronJobsSection cronJobs={data?.cronJobs ?? []} />
+          <MemoryBrowserSection />
         </main>
       </div>
       {selectedSession && (
