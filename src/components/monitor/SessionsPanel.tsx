@@ -7,6 +7,9 @@ import SectionCard from '@/components/monitor/SectionCard';
 
 interface SessionsPanelProps {
   sessions: MonitorSession[];
+  totalSessionCount: number;
+  showAll: boolean;
+  onToggleShowAll: () => void;
   selectedSessionId: string | null;
   onSelectSession: (sessionId: string) => void;
   onRefresh: () => void;
@@ -22,22 +25,45 @@ function getChannelColor(channel?: string): string {
   }
 }
 
-export default function SessionsPanel({ sessions, selectedSessionId, onSelectSession, onRefresh }: SessionsPanelProps) {
+export default function SessionsPanel({ sessions, totalSessionCount, showAll, onToggleShowAll, selectedSessionId, onSelectSession, onRefresh }: SessionsPanelProps) {
   const sorted = [...sessions].sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
 
   return (
     <SectionCard
-      title="Active Sessions"
+      title={showAll ? 'All Sessions' : 'Active Sessions'}
       icon={<Monitor />}
-      count={sessions.length}
       actions={
-        <button
-          onClick={onRefresh}
-          className="text-mc-text-secondary cursor-pointer hover:text-mc-accent transition-colors duration-200"
-          aria-label="Refresh sessions"
-        >
-          <RefreshCw className="w-3.5 h-3.5" />
-        </button>
+        <div className="flex items-center gap-3">
+          <div className="flex items-center bg-mc-bg-tertiary rounded-md text-xs">
+            <button
+              onClick={showAll ? onToggleShowAll : undefined}
+              className={`px-2.5 py-1 rounded-md cursor-pointer transition-colors duration-200 ${
+                !showAll
+                  ? 'bg-mc-accent text-mc-bg font-semibold'
+                  : 'text-mc-text-secondary hover:text-mc-text'
+              }`}
+            >
+              Active ({sessions.length})
+            </button>
+            <button
+              onClick={!showAll ? onToggleShowAll : undefined}
+              className={`px-2.5 py-1 rounded-md cursor-pointer transition-colors duration-200 ${
+                showAll
+                  ? 'bg-mc-accent text-mc-bg font-semibold'
+                  : 'text-mc-text-secondary hover:text-mc-text'
+              }`}
+            >
+              All ({totalSessionCount})
+            </button>
+          </div>
+          <button
+            onClick={onRefresh}
+            className="text-mc-text-secondary cursor-pointer hover:text-mc-accent transition-colors duration-200"
+            aria-label="Refresh sessions"
+          >
+            <RefreshCw className="w-3.5 h-3.5" />
+          </button>
+        </div>
       }
     >
       <div className="p-0 overflow-auto max-h-96">

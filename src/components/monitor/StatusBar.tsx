@@ -5,14 +5,15 @@ import { formatTokenCount } from './types';
 
 interface StatusBarProps {
   connected: boolean;
-  sessionCount: number;
+  activeSessionCount: number;
+  totalSessionCount: number;
   totalTokens: number;
   dailyTokens: number;
   lastUpdated: number | null;
   onRefresh: () => void;
 }
 
-export default function StatusBar({ connected, sessionCount, totalTokens, dailyTokens, lastUpdated, onRefresh }: StatusBarProps) {
+export default function StatusBar({ connected, activeSessionCount, totalSessionCount, totalTokens, dailyTokens, lastUpdated, onRefresh }: StatusBarProps) {
 
   const timeAgo = lastUpdated
     ? `${Math.round((Date.now() - lastUpdated) / 1000)}s ago`
@@ -39,7 +40,10 @@ export default function StatusBar({ connected, sessionCount, totalTokens, dailyT
         </div>
         <div className="flex items-center gap-6 text-sm text-mc-text-secondary">
           <div>
-            <span className="text-mc-text">{sessionCount}</span> sessions
+            <span className="text-mc-text">{activeSessionCount}</span> active
+            {totalSessionCount !== activeSessionCount && (
+              <span className="text-mc-text-secondary"> ({totalSessionCount} total)</span>
+            )}
           </div>
           <div>
             <span className="text-mc-text">{formatTokenCount(dailyTokens)}</span> today

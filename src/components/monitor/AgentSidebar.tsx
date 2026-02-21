@@ -13,10 +13,15 @@ import {
 interface AgentSidebarProps {
   sessions: MonitorSession[];
   agents: MonitorAgent[];
+  showAll: boolean;
 }
 
-export default function AgentSidebar({ sessions, agents }: AgentSidebarProps) {
-  const tree = buildAgentTree(sessions, agents);
+const ACTIVE_THRESHOLD_MS = 20 * 60 * 1000;
+
+export default function AgentSidebar({ sessions, agents, showAll }: AgentSidebarProps) {
+  const tree = buildAgentTree(sessions, agents).filter(
+    (agent) => showAll || (agent.lastActive && Date.now() - agent.lastActive < ACTIVE_THRESHOLD_MS)
+  );
 
   return (
     <div className="w-72 bg-mc-bg-secondary border-r border-mc-border overflow-y-auto h-full">

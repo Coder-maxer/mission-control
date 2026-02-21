@@ -18,7 +18,14 @@ export default function MonitorPage() {
   const [data, setData] = useState<MonitorData | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
+  const [showAll, setShowAll] = useState(false);
   const { events, connected: sseConnected, clearEvents } = useMonitorSSE();
+
+  const ACTIVE_THRESHOLD_MS = 20 * 60 * 1000;
+  const allSessions = data?.sessions ?? [];
+  const filteredSessions = showAll
+    ? allSessions
+    : allSessions.filter((s) => Date.now() - s.updatedAt < ACTIVE_THRESHOLD_MS);
 
   const fetchData = useCallback(async () => {
     try {
@@ -47,8 +54,8 @@ export default function MonitorPage() {
     return () => clearInterval(interval);
   }, [fetchData]);
 
-  const totalTokens = data?.sessions?.reduce((sum, s) => sum + (s.totalTokens || 0), 0) ?? 0;
-  const daily = data?.sessions ? getDailyTokens(data.sessions) : { total: 0 };
+  const totalTokens = allSessions.reduce((sum, s) => sum + (s.totalTokens || 0), 0);
+  const daily = allSessions.length ? getDailyTokens(allSessions) : { total: 0 };
 
   const selectedSession = data?.sessions?.find((s) => s.sessionId === selectedSessionId);
 
@@ -103,7 +110,8 @@ export default function MonitorPage() {
     <div className="flex flex-col h-screen">
       <StatusBar
         connected={data?.connected ?? false}
-        sessionCount={data?.sessions?.length ?? 0}
+        activeSessionCount={filteredSessions.length}
+        totalSessionCount={allSessions.length}
         totalTokens={totalTokens}
         dailyTokens={daily.total}
         lastUpdated={data?.timestamp ?? null}
@@ -111,22 +119,26 @@ export default function MonitorPage() {
       />
       <div className="flex flex-1 overflow-hidden">
         <AgentSidebar
-          sessions={data?.sessions ?? []}
+          sessions={allSessions}
           agents={data?.agents ?? []}
+          showAll={showAll}
         />
         <main className="flex-1 overflow-y-auto p-6 space-y-6">
           {data && <AlertBanner data={data} />}
           <AgentHealthSection
-            sessions={data?.sessions ?? []}
+            sessions={allSessions}
             agents={data?.agents ?? []}
             onRefresh={fetchData}
           />
           <TokenUsageSection
-            sessions={data?.sessions ?? []}
+            sessions={allSessions}
             onRefresh={fetchData}
           />
           <SessionsPanel
-            sessions={data?.sessions ?? []}
+            sessions={filteredSessions}
+            totalSessionCount={allSessions.length}
+            showAll={showAll}
+            onToggleShowAll={() => setShowAll((prev) => !prev)}
             selectedSessionId={selectedSessionId}
             onSelectSession={setSelectedSessionId}
             onRefresh={fetchData}
