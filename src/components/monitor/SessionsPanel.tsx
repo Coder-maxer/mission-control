@@ -1,43 +1,15 @@
 'use client';
 
 import { formatDistanceToNow } from 'date-fns';
-
-interface Session {
-  key: string;
-  kind: string;
-  displayName?: string;
-  channel?: string;
-  sessionId: string;
-  updatedAt: number;
-  thinkingLevel?: string;
-  inputTokens?: number;
-  outputTokens?: number;
-  totalTokens?: number;
-  modelProvider?: string;
-  model?: string;
-  contextTokens?: number;
-  abortedLastRun?: boolean;
-  lastChannel?: string;
-  origin?: {
-    label?: string;
-    provider?: string;
-    surface?: string;
-    chatType?: string;
-  };
-}
+import { Monitor, RefreshCw } from 'lucide-react';
+import { MonitorSession, parseSessionKey } from '@/components/monitor/types';
+import SectionCard from '@/components/monitor/SectionCard';
 
 interface SessionsPanelProps {
-  sessions: Session[];
+  sessions: MonitorSession[];
   selectedSessionId: string | null;
   onSelectSession: (sessionId: string) => void;
-}
-
-function parseSessionKey(key: string) {
-  // key format: "agent:name:context" e.g. "agent:alfred-workspace:main"
-  const parts = key.split(':');
-  const agent = parts[1] || 'unknown';
-  const context = parts.slice(2).join(':') || 'default';
-  return { agent, context };
+  onRefresh: () => void;
 }
 
 function getChannelColor(channel?: string): string {
@@ -50,17 +22,25 @@ function getChannelColor(channel?: string): string {
   }
 }
 
-export default function SessionsPanel({ sessions, selectedSessionId, onSelectSession }: SessionsPanelProps) {
+export default function SessionsPanel({ sessions, selectedSessionId, onSelectSession, onRefresh }: SessionsPanelProps) {
   const sorted = [...sessions].sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
 
   return (
-    <div className="flex-1 overflow-hidden">
-      <div className="border-b border-mc-border px-4 py-3">
-        <h2 className="text-sm font-semibold text-mc-text-secondary uppercase tracking-wider">
-          Sessions ({sessions.length})
-        </h2>
-      </div>
-      <div className="overflow-auto" style={{ maxHeight: 'calc(100vh - 180px)' }}>
+    <SectionCard
+      title="Active Sessions"
+      icon={<Monitor />}
+      count={sessions.length}
+      actions={
+        <button
+          onClick={onRefresh}
+          className="text-mc-text-secondary cursor-pointer hover:text-mc-accent transition-colors duration-200"
+          aria-label="Refresh sessions"
+        >
+          <RefreshCw className="w-3.5 h-3.5" />
+        </button>
+      }
+    >
+      <div className="p-0 overflow-auto max-h-96">
         <table className="w-full text-sm">
           <thead className="sticky top-0 bg-mc-bg-secondary">
             <tr className="text-mc-text-secondary text-xs uppercase tracking-wider">
@@ -132,6 +112,6 @@ export default function SessionsPanel({ sessions, selectedSessionId, onSelectSes
           </tbody>
         </table>
       </div>
-    </div>
+    </SectionCard>
   );
 }

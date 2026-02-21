@@ -1,18 +1,17 @@
 'use client';
 
+import { Radio, RefreshCw } from 'lucide-react';
+import { formatTokenCount } from './types';
+
 interface StatusBarProps {
   connected: boolean;
   sessionCount: number;
   totalTokens: number;
   lastUpdated: number | null;
+  onRefresh: () => void;
 }
 
-export default function StatusBar({ connected, sessionCount, totalTokens, lastUpdated }: StatusBarProps) {
-  const formatTokens = (n: number) => {
-    if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
-    if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
-    return String(n);
-  };
+export default function StatusBar({ connected, sessionCount, totalTokens, lastUpdated, onRefresh }: StatusBarProps) {
 
   const timeAgo = lastUpdated
     ? `${Math.round((Date.now() - lastUpdated) / 1000)}s ago`
@@ -22,7 +21,10 @@ export default function StatusBar({ connected, sessionCount, totalTokens, lastUp
     <header className="border-b border-mc-border bg-mc-bg-secondary px-6 py-4">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <h1 className="text-lg font-semibold text-mc-text">Monitor</h1>
+          <div className="flex items-center gap-2">
+            <Radio className="w-5 h-5 text-mc-accent" />
+            <h1 className="text-lg font-semibold text-mc-text">Monitor</h1>
+          </div>
           <div className="flex items-center gap-2">
             <span
               className={`inline-block h-2.5 w-2.5 rounded-full ${
@@ -39,10 +41,19 @@ export default function StatusBar({ connected, sessionCount, totalTokens, lastUp
             <span className="text-mc-text">{sessionCount}</span> sessions
           </div>
           <div>
-            <span className="text-mc-text">{formatTokens(totalTokens)}</span> tokens
+            <span className="text-mc-text">{formatTokenCount(totalTokens)}</span> tokens
           </div>
-          <div>
-            Updated <span className="text-mc-text">{timeAgo}</span>
+          <div className="flex items-center gap-2">
+            <span>
+              Updated <span className="text-mc-text">{timeAgo}</span>
+            </span>
+            <button
+              onClick={onRefresh}
+              className="cursor-pointer hover:text-mc-accent transition-colors duration-200"
+              aria-label="Refresh data"
+            >
+              <RefreshCw className="w-3.5 h-3.5" />
+            </button>
           </div>
         </div>
       </div>
