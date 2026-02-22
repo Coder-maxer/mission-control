@@ -55,57 +55,6 @@ body {
   background: var(--mc-text-secondary);
 }
 
-/* Status badge styles */
-.status-standby {
-  @apply bg-mc-bg-tertiary text-mc-text-secondary border border-mc-border;
-}
-
-.status-working {
-  @apply bg-mc-accent-green/20 text-mc-accent-green border border-mc-accent-green/50;
-}
-
-.status-offline {
-  @apply bg-mc-accent-red/20 text-mc-accent-red border border-mc-accent-red/50;
-}
-
-/* Priority badge styles */
-.priority-low {
-  @apply bg-mc-text-secondary/20 text-mc-text-secondary;
-}
-
-.priority-normal {
-  @apply bg-mc-accent/20 text-mc-accent;
-}
-
-.priority-high {
-  @apply bg-mc-accent-yellow/20 text-mc-accent-yellow;
-}
-
-.priority-urgent {
-  @apply bg-mc-accent-red/20 text-mc-accent-red;
-}
-
-/* Task status column colors */
-.column-inbox {
-  @apply border-t-mc-accent-pink;
-}
-
-.column-assigned {
-  @apply border-t-mc-accent-yellow;
-}
-
-.column-in_progress {
-  @apply border-t-mc-accent;
-}
-
-.column-review {
-  @apply border-t-mc-accent-purple;
-}
-
-.column-done {
-  @apply border-t-mc-accent-green;
-}
-
 /* Animations */
 @keyframes pulse-soft {
   0%, 100% { opacity: 1; }
@@ -129,9 +78,4 @@ body {
 
 .animate-slide-in {
   animation: slide-in 0.2s ease-out;
-}
-
-/* Glow effect for online status */
-.online-glow {
-  box-shadow: 0 0 10px var(--mc-accent-green), 0 0 20px var(--mc-accent-green);
 }
