@@ -7,18 +7,13 @@ services:
     image: mission-control:latest
     environment:
       NODE_ENV: production
-      DATABASE_PATH: /app/data/mission-control.db
-      WORKSPACE_BASE_PATH: /app/workspace
-      PROJECTS_PATH: /app/workspace/projects
       OPENCLAW_GATEWAY_URL: ws://open-claw-openclaw-kttly8-openclaw-1:18789
       OPENCLAW_GATEWAY_TOKEN: ${OPENCLAW_GATEWAY_TOKEN}
       MC_API_TOKEN: ${MC_API_TOKEN}
-      WEBHOOK_SECRET: ${WEBHOOK_SECRET}
       MONITOR_USER: ${MONITOR_USER}
       MONITOR_PASSWORD: ${MONITOR_PASSWORD}
     volumes:
       - mission-control-data:/app/data
-      - mission-control-workspace:/app/workspace
       - openclaw-data:/openclaw-data:ro
     restart: unless-stopped
     healthcheck:
@@ -26,7 +21,7 @@ services:
         - CMD
         - node
         - -e
-        - "fetch('http://127.0.0.1:4000/api/events').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"
+        - "fetch('http://127.0.0.1:4000/api/monitor').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"
       interval: 30s
       timeout: 5s
       start_period: 30s
@@ -36,7 +31,6 @@ services:
 
 volumes:
   mission-control-data:
-  mission-control-workspace:
   openclaw-data:
     external: true
     name: open-claw-openclaw-kttly8_openclaw-data
