@@ -282,6 +282,7 @@ interface DailySnapshot {
 }
 
 const STORAGE_KEY = 'monitor-daily-token-snapshot';
+const AGENT_STORAGE_KEY = 'monitor-daily-agent-token-snapshot';
 
 function loadSnapshot(): DailySnapshot | null {
   if (typeof window === 'undefined') return null;
@@ -297,6 +298,30 @@ function saveSnapshot(snapshot: DailySnapshot): void {
   if (typeof window === 'undefined') return;
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(snapshot));
+  } catch {
+    // localStorage full or unavailable
+  }
+}
+
+interface AgentDailySnapshot {
+  date: string;
+  agents: Record<string, { input: number; output: number }>;
+}
+
+function loadAgentSnapshot(): AgentDailySnapshot | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = localStorage.getItem(AGENT_STORAGE_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+function saveAgentSnapshot(snapshot: AgentDailySnapshot): void {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem(AGENT_STORAGE_KEY, JSON.stringify(snapshot));
   } catch {
     // localStorage full or unavailable
   }
@@ -340,6 +365,63 @@ export function getDailyTokens(sessions: MonitorSession[]): {
     total: Math.max(0, current.total - snapshot.total),
     resetDate: today,
   };
+}
+
+/**
+ * Calculate today's per-agent token usage using the same midnight MST
+ * snapshot approach as getDailyTokens, but tracked per agent.
+ */
+export function getDailyAgentTokens(
+  sessions: MonitorSession[]
+): Record<string, { input: number; output: number }> {
+  const today = getMSTDateString();
+
+  // Build current per-agent cumulative totals
+  const currentAgents: Record<string, { input: number; output: number }> = {};
+  for (const session of sessions) {
+    const { agent } = parseSessionKey(session.key);
+    if (!currentAgents[agent]) currentAgents[agent] = { input: 0, output: 0 };
+    currentAgents[agent].input += session.inputTokens || 0;
+    currentAgents[agent].output += session.outputTokens || 0;
+  }
+
+  const snapshot = loadAgentSnapshot();
+
+  // New day or first visit — snapshot current as baseline
+  if (!snapshot || snapshot.date !== today) {
+    saveAgentSnapshot({ date: today, agents: currentAgents });
+    if (snapshot && snapshot.date !== today) {
+      // New day — all agents start at 0
+      const result: Record<string, { input: number; output: number }> = {};
+      for (const agent of Object.keys(currentAgents)) {
+        result[agent] = { input: 0, output: 0 };
+      }
+      return result;
+    }
+    return currentAgents; // First visit ever
+  }
+
+  // Same day — calculate deltas
+  // Also update snapshot with any new agents seen
+  let snapshotChanged = false;
+  const result: Record<string, { input: number; output: number }> = {};
+  for (const [agent, current] of Object.entries(currentAgents)) {
+    const baseline = snapshot.agents[agent];
+    if (baseline) {
+      result[agent] = {
+        input: Math.max(0, current.input - baseline.input),
+        output: Math.max(0, current.output - baseline.output),
+      };
+    } else {
+      // New agent seen mid-day — its entire usage is "today"
+      result[agent] = current;
+      snapshot.agents[agent] = { input: 0, output: 0 };
+      snapshotChanged = true;
+    }
+  }
+  if (snapshotChanged) saveAgentSnapshot(snapshot);
+
+  return result;
 }
 
 // --- Cron Schedule Utilities ---

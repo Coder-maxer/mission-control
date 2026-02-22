@@ -8,6 +8,7 @@ import {
   parseSessionKey,
   aggregateTokens,
   getDailyTokens,
+  getDailyAgentTokens,
   calculateCost,
   calculateAgentCost,
   formatCost,
@@ -26,6 +27,8 @@ interface AgentTokenRow {
   output: number;
   total: number;
   cost: number;
+  dailyInput: number;
+  dailyOutput: number;
 }
 
 export default function TokenUsageSection({
@@ -35,6 +38,7 @@ export default function TokenUsageSection({
   const cumulative = aggregateTokens(sessions);
   const daily = getDailyTokens(sessions);
   const cost = calculateCost(sessions);
+  const dailyAgentTokens = getDailyAgentTokens(sessions);
 
   // Group sessions by agent name
   const agentMap = new Map<string, MonitorSession[]>();
@@ -46,11 +50,12 @@ export default function TokenUsageSection({
     agentMap.get(agent)!.push(session);
   }
 
-  // Build per-agent rows sorted by total descending
+  // Build per-agent rows sorted by daily total descending
   const agentRows: AgentTokenRow[] = [];
   let colorIndex = 0;
   for (const [name, agentSessions] of Array.from(agentMap.entries())) {
     const { input, output, total } = aggregateTokens(agentSessions);
+    const agentDaily = dailyAgentTokens[name] || { input: 0, output: 0 };
     agentRows.push({
       name,
       color: AGENT_COLORS[colorIndex % AGENT_COLORS.length],
@@ -58,10 +63,12 @@ export default function TokenUsageSection({
       output,
       total,
       cost: calculateAgentCost(agentSessions),
+      dailyInput: agentDaily.input,
+      dailyOutput: agentDaily.output,
     });
     colorIndex++;
   }
-  agentRows.sort((a, b) => b.total - a.total);
+  agentRows.sort((a, b) => (b.dailyInput + b.dailyOutput) - (a.dailyInput + a.dailyOutput));
 
   return (
     <SectionCard
@@ -145,50 +152,54 @@ export default function TokenUsageSection({
         </div>
       </div>
 
-      {/* Per-agent breakdown table */}
+      {/* Per-agent daily breakdown */}
       {agentRows.length > 0 && (
-        <div className="px-4 pb-4">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="text-xs text-mc-text-secondary uppercase">
-                <th className="text-left py-2 font-medium">Agent</th>
-                <th className="text-right py-2 font-medium">Input</th>
-                <th className="text-right py-2 font-medium">Output</th>
-                <th className="text-right py-2 font-medium">Total</th>
-                <th className="text-right py-2 font-medium">Cost</th>
-              </tr>
-            </thead>
-            <tbody>
-              {agentRows.map((row) => (
-                <tr
-                  key={row.name}
-                  className="border-t border-mc-border/50"
-                >
-                  <td className={`py-2 font-medium ${row.color}`}>
-                    {row.name}
-                  </td>
-                  <td className="py-2 text-right text-mc-text-secondary tabular-nums">
-                    {formatTokenCount(row.input)}
-                  </td>
-                  <td className="py-2 text-right text-mc-text-secondary tabular-nums">
-                    {formatTokenCount(row.output)}
-                  </td>
-                  <td className="py-2 text-right text-mc-text font-medium tabular-nums">
-                    {formatTokenCount(row.total)}
-                  </td>
-                  <td className="py-2 text-right text-mc-accent-yellow tabular-nums">
-                    {row.cost > 0 ? formatCost(row.cost) : '—'}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div className="px-4 pb-4 space-y-3">
+          {agentRows.map((row) => {
+            const agentDailyTotal = row.dailyInput + row.dailyOutput;
+            return (
+              <div key={row.name} className="rounded-lg border border-mc-border/50 bg-mc-bg p-3">
+                <div className="flex items-center justify-between mb-2">
+                  <span className={`text-sm font-medium ${row.color}`}>{row.name}</span>
+                  <div className="flex items-center gap-3 text-xs text-mc-text-secondary">
+                    <span className="tabular-nums">{formatTokenCount(agentDailyTotal)} today</span>
+                    {row.cost > 0 && (
+                      <>
+                        <span className="text-mc-border">|</span>
+                        <span className="text-mc-accent-yellow tabular-nums">{formatCost(row.cost)}</span>
+                      </>
+                    )}
+                  </div>
+                </div>
+                <div className="flex gap-3">
+                  <div className="flex-1 rounded border border-mc-border/30 bg-mc-bg-secondary px-3 py-2 text-center">
+                    <div className="flex items-center justify-center gap-1">
+                      <ArrowDownRight className="w-3 h-3 text-mc-accent" />
+                      <span className="text-sm font-bold text-mc-text tabular-nums">
+                        {formatTokenCount(row.dailyInput)}
+                      </span>
+                    </div>
+                    <div className="text-[10px] text-mc-text-secondary uppercase mt-0.5">Input</div>
+                  </div>
+                  <div className="flex-1 rounded border border-mc-border/30 bg-mc-bg-secondary px-3 py-2 text-center">
+                    <div className="flex items-center justify-center gap-1">
+                      <ArrowUpRight className="w-3 h-3 text-mc-accent-green" />
+                      <span className="text-sm font-bold text-mc-text tabular-nums">
+                        {formatTokenCount(row.dailyOutput)}
+                      </span>
+                    </div>
+                    <div className="text-[10px] text-mc-text-secondary uppercase mt-0.5">Output</div>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
         </div>
       )}
 
       {/* Footer note */}
       <p className="text-xs text-mc-text-secondary italic px-4 pb-4">
-        Daily usage resets at midnight MST. Cost estimates for OpenRouter models only — GPT-5.2 (ChatGPT Plus) is free.
+        Daily usage resets at midnight MST.
       </p>
     </SectionCard>
   );

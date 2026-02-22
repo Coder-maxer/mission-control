@@ -132,6 +132,7 @@ export default function MemoryBrowserSection() {
                   <button
                     key={file.name}
                     onClick={() => setSelectedFile(file.name)}
+                    title={file.name}
                     className={`w-full text-left px-3 py-2 flex items-center gap-2 transition-colors cursor-pointer ${
                       isSelected
                         ? 'bg-mc-accent/10 text-mc-accent'
